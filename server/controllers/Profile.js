@@ -1,5 +1,4 @@
 const User = require("../models/User");
-const profile = require("../models/Profile");
 const Profile = require("../models/Profile");
 
 exports.updateProfile = async (req, res) => {

@@ -48,59 +48,80 @@ exports.createSection = async (req, res) => {
 
 
 exports.updateSection = async (req, res) => {
-    try{
-        // data input
-        const {sectionName, sectionId} = req.body;
+	try {
+		const { sectionName, sectionId,courseId } = req.body;
+		const section = await Section.findByIdAndUpdate(
+			sectionId,
+			{ sectionName },
+			{ new: true }
+		);
 
-        // data validation
-        if(!sectionName || !sectionId) {
-            return res.status(400).json({
-                success:false,
-                message:'Missing Properties',
-            });
-        }
-        // data update
+		const course = await Course.findById(courseId)
+		.populate({
+			path:"courseContent",
+			populate:{
+				path:"subSection",
+			},
+		})
+		.exec();
 
-        const section = await Section.findByIdAndUpdate(sectionId, {sectionName}, {new:true});
-
-
-        // return res
-        return res.status(200).json({
-            success:true,
-            message:'Section Updated Successfully',
-        });
-    }
-    catch(error) {
-        return res.status(500).json({
-            success:false,
-            message:"Unable to create section, please try again",
-            error:error.message,
-        });
-    }
+		res.status(200).json({
+			success: true,
+			message: section,
+			data:course,
+		});
+	} catch (error) {
+		console.error("Error updating section:", error);
+		res.status(500).json({
+			success: false,
+			message: "Internal server error",
+		});
+	}
 };
 
 
 exports.deleteSection = async (req, res) => {
-    try{
+	try {
 
-        // get id
-        const {sectionId} = req.params
-        // use findbyidanddelete
+		const { sectionId, courseId }  = req.body;
+		await Course.findByIdAndUpdate(courseId, {
+			$pull: {
+				courseContent: sectionId,
+			}
+		})
+		const section = await Section.findById(sectionId);
+		console.log(sectionId, courseId);
+		if(!section) {
+			return res.status(404).json({
+				success:false,
+				message:"Section not Found",
+			})
+		}
 
-        await Section.findByIdAndDelete(sectionId);
-        
-        // return res
-        return res.status(200).json({
-            success:true,
-            message:'Section deleted Successfully',
-        });
-        
-    }
-    catch(error) {
-        return res.status(500).json({
-            success:false,
-            message:"Unable to create section, please try again",
-            error:error.message,
-        });
-    }
-}
+		//delete sub section
+		await SubSection.deleteMany({_id: {$in: section.subSection}});
+
+		await Section.findByIdAndDelete(sectionId);
+
+		//find the updated course and return 
+		const course = await Course.findById(courseId).populate({
+			path:"courseContent",
+			populate: {
+				path: "subSection"
+			}
+		})
+		.exec();
+
+		res.status(200).json({
+			success:true,
+			message:"Section deleted",
+			data:course
+		});
+	} catch (error) {
+		console.error("Error deleting section:", error);
+		res.status(500).json({
+			success: false,
+			message: "Internal server error",
+		});
+	}
+}; 
